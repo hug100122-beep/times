@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2026年 預約表</title>
+    
+    <!-- PWA / Web App 設定 -->
+    <meta name="theme-color" content="#F9F5F2">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="2026預約">
+    
+    <!-- 內建圖示 (Favicon) - 奶茶色圓點 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23C5AFA0%22/></svg>">
+
+    <style>
+        :root {
+            /* 奶茶色系配色 */
+            --bg-color: #F9F5F2;          
+            --card-bg: #FFFFFF;           
+            --primary-text: #6D5448;      
+            --secondary-text: #9C8C84;    
+            
+            --accent-color: #C5AFA0;      
+            --accent-hover: #B29B8C;      
+            
+            --danger-color: #D4897E;      
+            --danger-hover: #C0766C;
+            
+            --deleted-bg: #EAE4E0;        
+            --deleted-text: #BDB4B0;      
+            
+            --border-radius: 8px;
+            --shadow: 0 2px 8px rgba(109, 84, 72, 0.08);
+        }
+
+        * {
+            box-sizing: border-box; /* 確保寬度計算正確 */
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: var(--bg-color);
+            color: var(--primary-text);
+            line-height: 1.5;
+            -webkit-tap-highlight-color: transparent;
+            min-height: 100vh;
+        }
+
+        /* 頂部控制列 */
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            justify-content: space-between;
+            position: sticky;
+            top: 10px; /* 留一點邊距 */
+            z-index: 100;
+        }
+
+        .header h2 {
+            margin: 0;
+            color: var(--primary-text);
+            font-weight: 600;
+            font-size: 1.2rem;
+        }
+
+        select {
+            padding: 8px 12px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: 1px solid #E0D6D0;
+            background-color: #FCFAF9;
+            color: var(--primary-text);
+            cursor: pointer;
+            outline: none;
+            -webkit-appearance: none; /* 移除 iOS 預設樣式 */
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236D5448' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 12px;
+            padding-right: 30px;
+        }
+
+        /* 星期標題 */
+        #weekdayRow {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+
+        .weekday-header {
+            text-align: center;
+            font-weight: bold;
+            color: var(--secondary-text);
+            padding: 8px 2px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* 日曆網格 */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            padding-bottom: 40px; /* 底部留白 */
+        }
+
+        /* 日期格子 */
+        .day-cell {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 6px 2px;
+            min-height: 100px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: transform 0.2s;
+            border: 1px solid transparent;
+            overflow: hidden;
+        }
+
+        .day-cell:active {
+            transform: scale(0.98);
+        }
+
+        .day-cell.empty {
+            background: transparent;
+            box-shadow: none;
+            pointer-events: none;
+        }
+
+        /* 日期數字 */
+        .date-number {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--primary-text);
+            margin-bottom: 6px;
+            text-align: center;
+            cursor: pointer;
+            width: 100%;
+            user-select: none;
+        }
+
+        .date-number:active {
+            color: var(--danger-color);
+        }
+
+        /* 時間按鈕 */
+        .time-slot {
+            background-color: var(--accent-color);
+            color: white;
+            padding: 4px 0;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            user-select: none;
+            width: 70%;
+            margin-left: auto;
+            margin-right: auto;
+            white-space: nowrap; /* 防止文字換行 */
+        }
+
+        .time-slot.deleted {
+            background-color: var(--deleted-bg);
+            text-decoration: line-through;
+            color: var(--deleted-text);
+        }
+
+        /* 整天打叉樣式 */
+        .day-x {
+            font-size: 40px;
+            color: var(--danger-color);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -40%);
+            cursor: pointer;
+            font-weight: bold;
+            line-height: 1;
+            user-select: none;
+            opacity: 0.8;
+            z-index: 10;
+        }
+
+        /* --- 針對更小螢幕的微調 --- */
+        @media (max-width: 400px) {
+            .day-cell { min-height: 90px; }
+            .time-slot { font-size: 10px; padding: 3px 0; }
+            .header h2 { font-size: 1rem; }
+            .date-number { font-size: 12px; }
+        }
+
+        /* 通用模態視窗 (Modal) */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(109, 84, 72, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            transition: opacity 0.3s;
+            padding: 20px;
+        }
+
+        .modal-overlay.active { opacity: 1; }
+
+        .modal-box {
+            background: #FFFEFD;
+            padding: 24px;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 320px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(109, 84, 72, 0.25);
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .modal-overlay.active .modal-box { transform: scale(1); }
+
+        .modal-box h3 {
+            margin-top: 0;
+            color: var(--primary-text);
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+
+        .modal-box p {
+            color: var(--secondary-text);
+            margin-bottom: 20px;
+            font-size: 15px;
+        }
+
+        .modal-options {
+            text-align: left;
+            margin: 15px 0;
+            background: #F9F5F2;
+            padding: 12px;
+            border-radius: 12px;
+        }
+
+        .modal-options label {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            font-size: 15px;
+            cursor: pointer;
+            color: var(--primary-text);
+            padding: 4px; 
+        }
+
+        .modal-options input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            cursor: pointer;
+            accent-color: var(--accent-color);
+        }
+
+        .modal-buttons {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px; 
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: all 0.2s;
+            -webkit-appearance: none;
+        }
+
+        .btn-confirm { background: var(--accent-color); color: white; }
+        .btn-danger-confirm { background: var(--danger-color); color: white; }
+        .btn-cancel { background: #EAE4E0; color: var(--secondary-text); }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>2026年 預約表</h2>
+        <select id="monthSelector" onchange="renderCalendar()">
+            <!-- 選項由 JS 生成 -->
+        </select>
+    </div>
+
+    <div id="weekdayRow">
+        <div class="weekday-header">日</div>
+        <div class="weekday-header">一</div>
+        <div class="weekday-header">二</div>
+        <div class="weekday-header">三</div>
+        <div class="weekday-header">四</div>
+        <div class="weekday-header">五</div>
+        <div class="weekday-header">六</div>
+    </div>
+
+    <div class="calendar-grid" id="calendarGrid">
+        <!-- 內容由 JS 生成 -->
+    </div>
+
+    <!-- 1. 確認對話視窗 -->
+    <div class="modal-overlay" id="confirmModal" style="display: flex; visibility: hidden;">
+        <div class="modal-box">
+            <h3 id="confirmTitle">確認</h3>
+            <p id="confirmMessage">內容...</p>
+            <div class="modal-buttons">
+                <button class="btn btn-cancel" onclick="closeConfirmModal()">取消</button>
+                <button class="btn btn-confirm" id="confirmOkBtn">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 復原/新增時段的視窗 -->
+    <div class="modal-overlay" id="restoreModal" style="display: flex; visibility: hidden;">
+        <div class="modal-box">
+            <h3>新增時段</h3>
+            <p style="margin-bottom: 10px;">請勾選要加入的時間：</p>
+            <div class="modal-options">
+                <label><input type="checkbox" value="9:30" checked> 9:30</label>
+                <label><input type="checkbox" value="13:00" checked> 13:00</label>
+                <label><input type="checkbox" value="18:00" checked> 18:00</label>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-cancel" onclick="closeRestoreModal()">取消</button>
+                <button class="btn btn-confirm" onclick="confirmRestore()">確定新增</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const year = 2026;
+        const defaultSlots = ["9:30", "13:00", "18:30"];
+        
+        // 儲存每個日期的狀態 
+        let calendarState = {};
+        let currentEditingDate = null; 
+        let pendingConfirmAction = null; 
+
+        // [新增] 儲存狀態到 LocalStorage
+        function saveState() {
+            try {
+                localStorage.setItem('booking2026_state', JSON.stringify(calendarState));
+            } catch (e) {
+                console.error("儲存失敗:", e);
+            }
+        }
+
+        // [新增] 從 LocalStorage 載入狀態
+        function loadState() {
+            try {
+                const saved = localStorage.getItem('booking2026_state');
+                if (saved) {
+                    calendarState = JSON.parse(saved);
+                }
+            } catch (e) {
+                console.error("讀取失敗:", e);
+            }
+        }
+
+        window.onload = function() {
+            loadState(); // [修改] 啟動時先讀取資料
+
+            const selector = document.getElementById('monthSelector');
+            const months = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+            
+            months.forEach((m, index) => {
+                let option = document.createElement('option');
+                option.value = index;
+                option.text = m;
+                selector.add(option);
+            });
+            renderCalendar();
+        };
+
+        function renderCalendar() {
+            const monthIndex = parseInt(document.getElementById('monthSelector').value);
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            const firstDay = new Date(year, monthIndex, 1);
+            const lastDay = new Date(year, monthIndex + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startDayOfWeek = firstDay.getDay();
+
+            for (let i = 0; i < startDayOfWeek; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'day-cell empty';
+                grid.appendChild(emptyCell);
+            }
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateKey = `${monthIndex}-${d}`;
+                const cell = document.createElement('div');
+                cell.className = 'day-cell';
+
+                let dayState = calendarState[dateKey];
+                if (!dayState) {
+                    dayState = { 
+                        type: 'slots', 
+                        data: defaultSlots.map(time => ({ time: time, deleted: false })) 
+                    };
+                }
+
+                const dateNum = document.createElement('div');
+                dateNum.className = 'date-number';
+                dateNum.innerText = d; 
+
+                if (dayState.type === 'x') {
+                    cell.appendChild(dateNum);
+                    const xMark = document.createElement('div');
+                    xMark.className = 'day-x';
+                    xMark.innerText = 'X';
+                    xMark.onclick = (e) => { e.stopPropagation(); openRestoreModal(monthIndex, d); };
+                    cell.appendChild(xMark);
+                } else {
+                    dateNum.onclick = (e) => { e.stopPropagation(); askMarkDayAsX(monthIndex, d); };
+                    cell.appendChild(dateNum);
+
+                    dayState.data.forEach((slot, index) => {
+                        const btn = document.createElement('div');
+                        btn.className = 'time-slot ' + (slot.deleted ? 'deleted' : '');
+                        btn.innerText = slot.time;
+                        btn.onclick = (e) => { e.stopPropagation(); toggleSlot(monthIndex, d, index); };
+                        cell.appendChild(btn);
+                    });
+                }
+                grid.appendChild(cell);
+            }
+        }
+
+        function openConfirmModal(title, message, isDanger, callback) {
+            const modal = document.getElementById('confirmModal');
+            document.getElementById('confirmTitle').innerText = title;
+            document.getElementById('confirmMessage').innerText = message;
+            
+            const okBtn = document.getElementById('confirmOkBtn');
+            okBtn.className = isDanger ? 'btn btn-danger-confirm' : 'btn btn-confirm';
+
+            pendingConfirmAction = callback;
+            modal.style.visibility = 'visible';
+            modal.classList.add('active');
+        }
+
+        function closeConfirmModal() {
+            const modal = document.getElementById('confirmModal');
+            modal.classList.remove('active');
+            setTimeout(() => { modal.style.visibility = 'hidden'; }, 300);
+            pendingConfirmAction = null;
+        }
+
+        document.getElementById('confirmOkBtn').onclick = function() {
+            if (pendingConfirmAction) pendingConfirmAction();
+            closeConfirmModal();
+        };
+
+        function toggleSlot(month, day, slotIndex) {
+            const dateKey = `${month}-${day}`;
+            if (!calendarState[dateKey]) {
+                calendarState[dateKey] = { type: 'slots', data: defaultSlots.map(t => ({ time: t, deleted: false })) };
+            }
+            const slot = calendarState[dateKey].data[slotIndex];
+            
+            // 由於直接修改物件屬性，saveState 會在 callback 執行後儲存
+            const originalStatus = slot.deleted;
+            
+            if (slot.deleted) {
+                openConfirmModal("復原時段", `復原 ${day}日 ${slot.time}？`, false, () => {
+                    slot.deleted = false;
+                    saveState(); // [修改] 動作後儲存
+                    renderCalendar();
+                });
+            } else {
+                openConfirmModal("刪除時段", `刪除 ${day}日 ${slot.time}？`, true, () => {
+                    slot.deleted = true;
+                    saveState(); // [修改] 動作後儲存
+                    renderCalendar();
+                });
+            }
+        }
+
+        function askMarkDayAsX(month, day) {
+            openConfirmModal("取消當日", `將 ${day}日 標記為 'X'？`, true, () => {
+                const dateKey = `${month}-${day}`;
+                calendarState[dateKey] = { type: 'x' };
+                saveState(); // [修改] 動作後儲存
+                renderCalendar();
+            });
+        }
+
+        function openRestoreModal(month, day) {
+            currentEditingDate = { month, day };
+            const modal = document.getElementById('restoreModal');
+            modal.style.visibility = 'visible';
+            modal.classList.add('active');
+        }
+
+        function closeRestoreModal() {
+            const modal = document.getElementById('restoreModal');
+            modal.classList.remove('active');
+            setTimeout(() => { modal.style.visibility = 'hidden'; }, 300);
+        }
+
+        function confirmRestore() {
+            if (!currentEditingDate) return;
+            const checkboxes = document.querySelectorAll('.modal-options input[type="checkbox"]');
+            const newSlots = [];
+            checkboxes.forEach(cb => { if (cb.checked) newSlots.push({ time: cb.value, deleted: false }); });
+
+            if (newSlots.length === 0) {
+                openConfirmModal("提示", "請至少選擇一個時段。", false, null);
+                return;
+            }
+
+            const dateKey = `${currentEditingDate.month}-${currentEditingDate.day}`;
+            calendarState[dateKey] = { type: 'slots', data: newSlots };
+
+            saveState(); // [修改] 動作後儲存
+            closeRestoreModal();
+            renderCalendar();
+        }
+
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', function(e) {
+                if (e.target === this) { closeConfirmModal(); closeRestoreModal(); }
+            });
+        });
+    </script>
+</body>
+</html>
