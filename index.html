@@ -153,6 +153,11 @@
             user-select: none;
         }
 
+        /* 週末顏色區別 */
+        .weekend-date {
+            color: var(--danger-color);
+        }
+
         .date-number:active {
             color: var(--danger-color);
         }
@@ -342,9 +347,7 @@
             <h3>新增時段</h3>
             <p style="margin-bottom: 10px;">請勾選要加入的時間：</p>
             <div class="modal-options">
-                <label><input type="checkbox" value="9:30" checked> 9:30</label>
-                <label><input type="checkbox" value="13:00" checked> 13:00</label>
-                <label><input type="checkbox" value="18:00" checked> 18:00</label>
+                <!-- 內容現在由 JS 動態生成 -->
             </div>
             <div class="modal-buttons">
                 <button class="btn btn-cancel" onclick="closeRestoreModal()">取消</button>
@@ -355,14 +358,16 @@
 
     <script>
         const year = 2026;
-        const defaultSlots = ["9:30", "13:00", "18:30"];
+        // 定義不同的時段設定
+        const weekdaySlots = ["9:30", "13:00", "18:30"];
+        const weekendSlots = ["10:00", "13:30", "16:00"];
         
         // 儲存每個日期的狀態 
         let calendarState = {};
         let currentEditingDate = null; 
         let pendingConfirmAction = null; 
 
-        // [新增] 儲存狀態到 LocalStorage
+        // 儲存狀態到 LocalStorage
         function saveState() {
             try {
                 localStorage.setItem('booking2026_state', JSON.stringify(calendarState));
@@ -371,7 +376,7 @@
             }
         }
 
-        // [新增] 從 LocalStorage 載入狀態
+        // 從 LocalStorage 載入狀態
         function loadState() {
             try {
                 const saved = localStorage.getItem('booking2026_state');
@@ -384,7 +389,7 @@
         }
 
         window.onload = function() {
-            loadState(); // [修改] 啟動時先讀取資料
+            loadState(); // 啟動時先讀取資料
 
             const selector = document.getElementById('monthSelector');
             const months = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
@@ -419,16 +424,25 @@
                 const cell = document.createElement('div');
                 cell.className = 'day-cell';
 
+                // 判斷是否為週末 (0是週日, 6是週六)
+                const currentDayObj = new Date(year, monthIndex, d);
+                const dayOfWeek = currentDayObj.getDay();
+                const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+                const targetSlots = isWeekend ? weekendSlots : weekdaySlots;
+
                 let dayState = calendarState[dateKey];
                 if (!dayState) {
                     dayState = { 
                         type: 'slots', 
-                        data: defaultSlots.map(time => ({ time: time, deleted: false })) 
+                        data: targetSlots.map(time => ({ time: time, deleted: false })) 
                     };
                 }
 
                 const dateNum = document.createElement('div');
                 dateNum.className = 'date-number';
+                if (isWeekend) {
+                    dateNum.classList.add('weekend-date'); // 週末日期變色
+                }
                 dateNum.innerText = d; 
 
                 if (dayState.type === 'x') {
@@ -481,24 +495,27 @@
 
         function toggleSlot(month, day, slotIndex) {
             const dateKey = `${month}-${day}`;
+            // 重新判斷是平日還是週末以取得正確的預設值 (防呆用)
+            const currentDayObj = new Date(year, month, day);
+            const dayOfWeek = currentDayObj.getDay();
+            const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+            const targetSlots = isWeekend ? weekendSlots : weekdaySlots;
+
             if (!calendarState[dateKey]) {
-                calendarState[dateKey] = { type: 'slots', data: defaultSlots.map(t => ({ time: t, deleted: false })) };
+                calendarState[dateKey] = { type: 'slots', data: targetSlots.map(t => ({ time: t, deleted: false })) };
             }
             const slot = calendarState[dateKey].data[slotIndex];
-            
-            // 由於直接修改物件屬性，saveState 會在 callback 執行後儲存
-            const originalStatus = slot.deleted;
             
             if (slot.deleted) {
                 openConfirmModal("復原時段", `復原 ${day}日 ${slot.time}？`, false, () => {
                     slot.deleted = false;
-                    saveState(); // [修改] 動作後儲存
+                    saveState(); 
                     renderCalendar();
                 });
             } else {
                 openConfirmModal("刪除時段", `刪除 ${day}日 ${slot.time}？`, true, () => {
                     slot.deleted = true;
-                    saveState(); // [修改] 動作後儲存
+                    saveState();
                     renderCalendar();
                 });
             }
@@ -508,13 +525,30 @@
             openConfirmModal("取消當日", `將 ${day}日 標記為 'X'？`, true, () => {
                 const dateKey = `${month}-${day}`;
                 calendarState[dateKey] = { type: 'x' };
-                saveState(); // [修改] 動作後儲存
+                saveState();
                 renderCalendar();
             });
         }
 
         function openRestoreModal(month, day) {
             currentEditingDate = { month, day };
+            
+            // 動態判斷要顯示哪些時段選項
+            const currentDayObj = new Date(year, month, day);
+            const dayOfWeek = currentDayObj.getDay();
+            const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+            const slotsToShow = isWeekend ? weekendSlots : weekdaySlots;
+
+            // 生成選項 HTML
+            const optionsContainer = document.querySelector('.modal-options');
+            optionsContainer.innerHTML = ''; // 清空舊選項
+            
+            slotsToShow.forEach(time => {
+                const label = document.createElement('label');
+                label.innerHTML = `<input type="checkbox" value="${time}" checked> ${time}`;
+                optionsContainer.appendChild(label);
+            });
+
             const modal = document.getElementById('restoreModal');
             modal.style.visibility = 'visible';
             modal.classList.add('active');
@@ -540,7 +574,7 @@
             const dateKey = `${currentEditingDate.month}-${currentEditingDate.day}`;
             calendarState[dateKey] = { type: 'slots', data: newSlots };
 
-            saveState(); // [修改] 動作後儲存
+            saveState();
             closeRestoreModal();
             renderCalendar();
         }
