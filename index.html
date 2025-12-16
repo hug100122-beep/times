@@ -48,21 +48,25 @@
             line-height: 1.5;
             -webkit-tap-highlight-color: transparent;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
-        /* 頂部控制列 */
+        /* 頂部控制列 - 置中修改 */
         .header {
             display: flex;
             align-items: center;
+            justify-content: center; /* 改為置中 */
+            gap: 15px; /* 標題與選單的間距 */
             margin-bottom: 15px;
             background: var(--card-bg);
             padding: 15px;
             border-radius: var(--border-radius);
             box-shadow: var(--shadow);
-            justify-content: space-between;
             position: sticky;
             top: 10px; /* 留一點邊距 */
             z-index: 100;
+            flex-wrap: wrap; /* 手機螢幕太小時允許換行 */
         }
 
         .header h2 {
@@ -70,6 +74,7 @@
             color: var(--primary-text);
             font-weight: 600;
             font-size: 1.2rem;
+            text-align: center;
         }
 
         select {
@@ -113,7 +118,6 @@
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             gap: 4px;
-            padding-bottom: 40px; /* 底部留白 */
         }
 
         /* 日期格子 */
@@ -202,6 +206,16 @@
             z-index: 10;
         }
 
+        /* 底部提示文字 */
+        .footer-note {
+            margin-top: auto; /* 推到最底 */
+            padding: 20px 10px 30px 10px;
+            text-align: center;
+            color: var(--secondary-text);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
         /* --- 針對更小螢幕的微調 --- */
         @media (max-width: 400px) {
             .day-cell { min-height: 90px; }
@@ -212,7 +226,7 @@
 
         /* 通用模態視窗 (Modal) */
         .modal-overlay {
-            display: none;
+            display: none; /* 預設不顯示 */
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
@@ -226,7 +240,10 @@
             padding: 20px;
         }
 
-        .modal-overlay.active { opacity: 1; }
+        /* 用 JS 控制 display: flex 後，透過 active class 控制透明度 */
+        .modal-overlay.active { 
+            opacity: 1; 
+        }
 
         .modal-box {
             background: #FFFEFD;
@@ -255,18 +272,51 @@
             font-size: 15px;
         }
 
+        /* 編輯時段的樣式 */
+        .edit-slot-container {
+            margin: 20px 0;
+            text-align: left;
+            background: #F9F5F2;
+            padding: 15px;
+            border-radius: 12px;
+        }
+
+        .edit-slot-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .edit-slot-row label {
+            font-weight: bold;
+            min-width: 50px;
+        }
+
+        .edit-slot-row input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #E0D6D0;
+            border-radius: 6px;
+            outline: none;
+            font-size: 16px;
+        }
+
+        /* 舊的 modal options (用於還原日期) */
         .modal-options {
             text-align: left;
             margin: 15px 0;
             background: #F9F5F2;
             padding: 12px;
             border-radius: 12px;
+            max-height: 250px;
+            overflow-y: auto;
         }
 
         .modal-options label {
             display: flex;
             align-items: center;
-            margin: 10px 0;
+            margin: 8px 0;
             font-size: 15px;
             cursor: pointer;
             color: var(--primary-text);
@@ -279,6 +329,36 @@
             margin-right: 12px;
             cursor: pointer;
             accent-color: var(--accent-color);
+        }
+
+        /* 自訂時段輸入區 */
+        .custom-time-input {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #E0D6D0;
+        }
+
+        .custom-time-input input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #E0D6D0;
+            border-radius: 6px;
+            color: var(--primary-text);
+            font-size: 14px;
+            background: white;
+            outline: none;
+        }
+        
+        .btn-add-custom {
+            padding: 8px 16px;
+            background: var(--primary-text);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
         }
 
         .modal-buttons {
@@ -303,6 +383,7 @@
         .btn-confirm { background: var(--accent-color); color: white; }
         .btn-danger-confirm { background: var(--danger-color); color: white; }
         .btn-cancel { background: #EAE4E0; color: var(--secondary-text); }
+        .btn-restore { background: #9C8C84; color: white; } /* 復原按鈕顏色 */
 
     </style>
 </head>
@@ -311,7 +392,7 @@
     <div class="header">
         <h2>2026年 預約表</h2>
         <select id="monthSelector" onchange="renderCalendar()">
-            <!-- 選項由 JS 生成 -->
+            <!-- JS Generated -->
         </select>
     </div>
 
@@ -326,11 +407,16 @@
     </div>
 
     <div class="calendar-grid" id="calendarGrid">
-        <!-- 內容由 JS 生成 -->
+        <!-- JS Generated -->
     </div>
 
-    <!-- 1. 確認對話視窗 -->
-    <div class="modal-overlay" id="confirmModal" style="display: flex; visibility: hidden;">
+    <!-- 底部提示文字 -->
+    <div class="footer-note">
+        時間可微調，其他時間請官方LINE詢問
+    </div>
+
+    <!-- 1. 確認對話視窗 (用於一般確認) -->
+    <div class="modal-overlay" id="confirmModal">
         <div class="modal-box">
             <h3 id="confirmTitle">確認</h3>
             <p id="confirmMessage">內容...</p>
@@ -341,8 +427,31 @@
         </div>
     </div>
 
-    <!-- 2. 復原/新增時段的視窗 -->
-    <div class="modal-overlay" id="restoreModal" style="display: flex; visibility: hidden;">
+    <!-- 2. 時段操作視窗 (編輯/刪除) -->
+    <div class="modal-overlay" id="slotActionModal">
+        <div class="modal-box">
+            <h3>管理時段</h3>
+            <div class="edit-slot-container">
+                <div class="edit-slot-row">
+                    <label>時間</label>
+                    <!-- 使用 time 類型 -->
+                    <input type="time" id="editSlotInput">
+                </div>
+            </div>
+            
+            <div class="modal-buttons">
+                <!-- 按鈕將由 JS 動態更新 (刪除或復原) -->
+                <button class="btn btn-danger-confirm" id="btnActionDelete" onclick="actionToggleDelete()">刪除</button>
+                <button class="btn btn-confirm" onclick="actionSaveEdit()">儲存修改</button>
+            </div>
+            <div style="margin-top: 10px;">
+                <button class="btn btn-cancel" style="width: 100%;" onclick="closeSlotActionModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 復原/新增日期時段的視窗 (整日操作) -->
+    <div class="modal-overlay" id="restoreModal">
         <div class="modal-box">
             <h3>新增時段</h3>
             <p style="margin-bottom: 10px;">請勾選要加入的時間：</p>
@@ -358,16 +467,14 @@
 
     <script>
         const year = 2026;
-        // 定義不同的時段設定
         const weekdaySlots = ["9:30", "13:00", "18:30"];
         const weekendSlots = ["10:00", "13:30", "16:00"];
         
-        // 儲存每個日期的狀態 
         let calendarState = {};
-        let currentEditingDate = null; 
+        let currentEditingDate = null; // 用於 restoreModal (整日)
+        let currentSlotRef = null;     // 用於 slotActionModal (單一時段) {month, day, index}
         let pendingConfirmAction = null; 
 
-        // 儲存狀態到 LocalStorage
         function saveState() {
             try {
                 localStorage.setItem('booking2026_state', JSON.stringify(calendarState));
@@ -376,7 +483,6 @@
             }
         }
 
-        // 從 LocalStorage 載入狀態
         function loadState() {
             try {
                 const saved = localStorage.getItem('booking2026_state');
@@ -389,8 +495,7 @@
         }
 
         window.onload = function() {
-            loadState(); // 啟動時先讀取資料
-
+            loadState(); 
             const selector = document.getElementById('monthSelector');
             const months = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
             
@@ -424,7 +529,6 @@
                 const cell = document.createElement('div');
                 cell.className = 'day-cell';
 
-                // 判斷是否為週末 (0是週日, 6是週六)
                 const currentDayObj = new Date(year, monthIndex, d);
                 const dayOfWeek = currentDayObj.getDay();
                 const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
@@ -436,12 +540,14 @@
                         type: 'slots', 
                         data: targetSlots.map(time => ({ time: time, deleted: false })) 
                     };
+                    // [重要修復] 將預設資料寫入記憶體，確保後續點擊時有資料可查
+                    calendarState[dateKey] = dayState;
                 }
 
                 const dateNum = document.createElement('div');
                 dateNum.className = 'date-number';
                 if (isWeekend) {
-                    dateNum.classList.add('weekend-date'); // 週末日期變色
+                    dateNum.classList.add('weekend-date'); 
                 }
                 dateNum.innerText = d; 
 
@@ -460,7 +566,8 @@
                         const btn = document.createElement('div');
                         btn.className = 'time-slot ' + (slot.deleted ? 'deleted' : '');
                         btn.innerText = slot.time;
-                        btn.onclick = (e) => { e.stopPropagation(); toggleSlot(monthIndex, d, index); };
+                        // 開啟操作選單
+                        btn.onclick = (e) => { e.stopPropagation(); openSlotActionModal(monthIndex, d, index); };
                         cell.appendChild(btn);
                     });
                 }
@@ -468,8 +575,27 @@
             }
         }
 
+        // --- 通用：開啟/關閉 模態視窗 (修復 display 屬性) ---
+        function showModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.style.display = 'flex'; // 先設定 display: flex
+            // 稍微延遲加上 active class 以觸發 transition
+            setTimeout(() => {
+                modal.classList.add('active');
+            }, 10);
+        }
+
+        function hideModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.remove('active');
+            // 等待動畫結束後再隱藏
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 300);
+        }
+
+        // --- 1. 一般確認視窗 ---
         function openConfirmModal(title, message, isDanger, callback) {
-            const modal = document.getElementById('confirmModal');
             document.getElementById('confirmTitle').innerText = title;
             document.getElementById('confirmMessage').innerText = message;
             
@@ -477,14 +603,11 @@
             okBtn.className = isDanger ? 'btn btn-danger-confirm' : 'btn btn-confirm';
 
             pendingConfirmAction = callback;
-            modal.style.visibility = 'visible';
-            modal.classList.add('active');
+            showModal('confirmModal');
         }
 
         function closeConfirmModal() {
-            const modal = document.getElementById('confirmModal');
-            modal.classList.remove('active');
-            setTimeout(() => { modal.style.visibility = 'hidden'; }, 300);
+            hideModal('confirmModal');
             pendingConfirmAction = null;
         }
 
@@ -493,34 +616,94 @@
             closeConfirmModal();
         };
 
-        function toggleSlot(month, day, slotIndex) {
+        // --- 2. 時段操作視窗 (編輯/刪除) ---
+        function openSlotActionModal(month, day, index) {
             const dateKey = `${month}-${day}`;
-            // 重新判斷是平日還是週末以取得正確的預設值 (防呆用)
-            const currentDayObj = new Date(year, month, day);
-            const dayOfWeek = currentDayObj.getDay();
-            const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-            const targetSlots = isWeekend ? weekendSlots : weekdaySlots;
-
-            if (!calendarState[dateKey]) {
-                calendarState[dateKey] = { type: 'slots', data: targetSlots.map(t => ({ time: t, deleted: false })) };
-            }
-            const slot = calendarState[dateKey].data[slotIndex];
             
-            if (slot.deleted) {
-                openConfirmModal("復原時段", `復原 ${day}日 ${slot.time}？`, false, () => {
-                    slot.deleted = false;
-                    saveState(); 
-                    renderCalendar();
-                });
-            } else {
-                openConfirmModal("刪除時段", `刪除 ${day}日 ${slot.time}？`, true, () => {
-                    slot.deleted = true;
-                    saveState();
-                    renderCalendar();
-                });
+            // 再次檢查資料是否存在，若無則重繪 (防呆)
+            if (!calendarState[dateKey]) {
+                renderCalendar();
+                return;
             }
+            
+            const slot = calendarState[dateKey].data[index];
+            currentSlotRef = { month, day, index };
+
+            // 設定輸入框時間 (補0以符合 time input 格式)
+            let timeStr = slot.time;
+            if (timeStr.indexOf(':') === 1) timeStr = '0' + timeStr; // 9:30 -> 09:30
+            document.getElementById('editSlotInput').value = timeStr;
+
+            // 設定按鈕狀態 (刪除 vs 復原)
+            const btnDelete = document.getElementById('btnActionDelete');
+            if (slot.deleted) {
+                btnDelete.innerText = '復原';
+                btnDelete.className = 'btn btn-restore'; 
+                btnDelete.style.backgroundColor = '#95a5a6';
+            } else {
+                btnDelete.innerText = '刪除';
+                btnDelete.className = 'btn btn-danger-confirm';
+                btnDelete.style.backgroundColor = ''; 
+            }
+
+            showModal('slotActionModal');
         }
 
+        function closeSlotActionModal() {
+            hideModal('slotActionModal');
+            currentSlotRef = null;
+        }
+
+        // 執行：儲存時間修改
+        function actionSaveEdit() {
+            if (!currentSlotRef) return;
+            const inputVal = document.getElementById('editSlotInput').value;
+            if (!inputVal) return;
+
+            const { month, day, index } = currentSlotRef;
+            const dateKey = `${month}-${day}`;
+            
+            // 格式化時間 (移除開頭 0, e.g. 09:30 -> 9:30)
+            let formattedTime = inputVal;
+            if (formattedTime.startsWith('0')) formattedTime = formattedTime.substring(1);
+
+            // 更新資料
+            calendarState[dateKey].data[index].time = formattedTime;
+            
+            // 重新排序該日的時間 
+            sortSlotsForDay(calendarState[dateKey].data);
+
+            saveState();
+            closeSlotActionModal();
+            renderCalendar();
+        }
+
+        // 執行：切換刪除/復原
+        function actionToggleDelete() {
+            if (!currentSlotRef) return;
+            const { month, day, index } = currentSlotRef;
+            const dateKey = `${month}-${day}`;
+            
+            const slot = calendarState[dateKey].data[index];
+            slot.deleted = !slot.deleted;
+
+            saveState();
+            closeSlotActionModal();
+            renderCalendar();
+        }
+
+        // 輔助：排序時段
+        function sortSlotsForDay(slotsArray) {
+            slotsArray.sort((a, b) => {
+                // 將時間轉為分鐘數比較
+                const [h1, m1] = a.time.split(':').map(Number);
+                const [h2, m2] = b.time.split(':').map(Number);
+                return (h1 * 60 + m1) - (h2 * 60 + m2);
+            });
+        }
+
+
+        // --- 3. 日期操作 (打叉/整日還原) ---
         function askMarkDayAsX(month, day) {
             openConfirmModal("取消當日", `將 ${day}日 標記為 'X'？`, true, () => {
                 const dateKey = `${month}-${day}`;
@@ -533,41 +716,77 @@
         function openRestoreModal(month, day) {
             currentEditingDate = { month, day };
             
-            // 動態判斷要顯示哪些時段選項
             const currentDayObj = new Date(year, month, day);
             const dayOfWeek = currentDayObj.getDay();
             const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
             const slotsToShow = isWeekend ? weekendSlots : weekdaySlots;
 
-            // 生成選項 HTML
             const optionsContainer = document.querySelector('.modal-options');
-            optionsContainer.innerHTML = ''; // 清空舊選項
-            
+            optionsContainer.innerHTML = ''; 
+
+            const listDiv = document.createElement('div');
+            listDiv.id = 'slotListContainer';
+            optionsContainer.appendChild(listDiv);
+
             slotsToShow.forEach(time => {
-                const label = document.createElement('label');
-                label.innerHTML = `<input type="checkbox" value="${time}" checked> ${time}`;
-                optionsContainer.appendChild(label);
+                addCheckboxToContainer(listDiv, time, true);
             });
 
-            const modal = document.getElementById('restoreModal');
-            modal.style.visibility = 'visible';
-            modal.classList.add('active');
+            const customDiv = document.createElement('div');
+            customDiv.className = 'custom-time-input';
+            customDiv.innerHTML = `
+                <input type="time" id="newSlotTime">
+                <button class="btn-add-custom" onclick="addCustomSlotAction()">新增</button>
+            `;
+            optionsContainer.appendChild(customDiv);
+
+            showModal('restoreModal');
+        }
+
+        function addCheckboxToContainer(container, time, checked) {
+            const label = document.createElement('label');
+            label.innerHTML = `<input type="checkbox" value="${time}" ${checked ? 'checked' : ''}> ${time}`;
+            container.appendChild(label);
+        }
+
+        function addCustomSlotAction() {
+            const input = document.getElementById('newSlotTime');
+            let time = input.value;
+            if (!time) return;
+            if (time.startsWith('0')) time = time.substring(1);
+
+            const container = document.getElementById('slotListContainer');
+            addCheckboxToContainer(container, time, true);
+            input.value = ''; 
         }
 
         function closeRestoreModal() {
-            const modal = document.getElementById('restoreModal');
-            modal.classList.remove('active');
-            setTimeout(() => { modal.style.visibility = 'hidden'; }, 300);
+            hideModal('restoreModal');
         }
 
         function confirmRestore() {
             if (!currentEditingDate) return;
-            const checkboxes = document.querySelectorAll('.modal-options input[type="checkbox"]');
+            const checkboxes = document.querySelectorAll('#slotListContainer input[type="checkbox"]');
             const newSlots = [];
-            checkboxes.forEach(cb => { if (cb.checked) newSlots.push({ time: cb.value, deleted: false }); });
+            
+            const tempSlots = [];
+            checkboxes.forEach(cb => { 
+                if (cb.checked) tempSlots.push(cb.value); 
+            });
+
+            // 排序時間
+            tempSlots.sort((a, b) => {
+                const [h1, m1] = a.split(':').map(Number);
+                const [h2, m2] = b.split(':').map(Number);
+                return (h1 * 60 + m1) - (h2 * 60 + m2);
+            });
+
+            tempSlots.forEach(time => {
+                newSlots.push({ time: time, deleted: false });
+            });
 
             if (newSlots.length === 0) {
-                openConfirmModal("提示", "請至少選擇一個時段。", false, null);
+                openConfirmModal("提示", "請至少新增或選擇一個時段。", false, null);
                 return;
             }
 
@@ -581,7 +800,11 @@
 
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', function(e) {
-                if (e.target === this) { closeConfirmModal(); closeRestoreModal(); }
+                if (e.target === this) {
+                    if (this.id === 'confirmModal') closeConfirmModal();
+                    if (this.id === 'slotActionModal') closeSlotActionModal();
+                    if (this.id === 'restoreModal') closeRestoreModal();
+                }
             });
         });
     </script>
